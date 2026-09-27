@@ -1,43 +1,29 @@
 const express = require('express');
-const cors = require('cors');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 app.post('/chat', async (req, res) => {
-    try {
-        const { mensaje, contextoJuego } = req.body;
+  try {
+    const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ error: "Falta el prompt" });
 
-        if (!mensaje) {
-            return res.status(400).json({ error: "Falta el mensaje" });
-        }
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-        const promptSistema = `
-        Eres 'AxolBot', un asistente de inteligencia artificial integrado en un chat flotante dentro de Roblox.
-        Tu misión es responder al jugador de manera amigable, clara y breve.
-        IMPORTANTE: Responde SIEMPRE en idioma español.
-        
-        Información del jugador en Roblox: ${JSON.stringify(contextoJuego || {})}
-        Mensaje recibido del usuario: ${mensaje}
-        `;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: promptSistema,
-        });
-
-        res.json({ respuesta: response.text });
-    } catch (error) {
-        console.error("Error en la API de Gemini:", error);
-        res.status(500).json({ error: "Error interno al comunicarse con Gemini." });
-    }
+    res.json({ response: text });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno en el servidor" });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Servidor activo en el puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
